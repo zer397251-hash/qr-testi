@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>VR Ticket Scanner</title>
+
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+
+<style>
+body{
+font-family:Arial;
+background:#111;
+color:white;
+text-align:center;
+}
+
+video{
+width:400px;
+border:3px solid #444;
+border-radius:10px;
+}
+
+#result{
+margin-top:20px;
+background:#222;
+padding:20px;
+border-radius:10px;
+width:600px;
+margin-left:auto;
+margin-right:auto;
+text-align:left;
+}
+
+pre{
+white-space:pre-wrap;
+word-break:break-all;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>VR Aztec Ticket Scanner</h1>
+
+<video id="video"></video>
+
+<div id="result">
+Waiting for scan...
+</div>
+
+<script>
+
+const codeReader = new ZXing.BrowserMultiFormatReader()
+
+const resultBox = document.getElementById("result")
+
+function hexDump(bytes){
+
+let out = ""
+
+for(let i=0;i<bytes.length;i++){
+
+let hex = bytes[i].toString(16).padStart(2,"0")
+
+out += i.toString().padStart(3,"0")+" 0x"+hex+"\n"
+
+}
+
+return out
+}
+
+function decodeTicket(bytes){
+
+let coach = bytes[21]
+let seat  = bytes[22]
+
+let origin = (bytes[26] << 8) | bytes[27]
+let dest   = (bytes[28] << 8) | bytes[29]
+
+let train  = bytes[23]
+
+return `
+Origin station id: ${origin}
+Destination id: ${dest}
+
+Train code: 0x${train.toString(16)}
+
+Coach raw: ${coach}
+Seat raw : ${seat}
+
+Seat field: ${(coach<<8)+seat}
+`
+}
+
+codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+
+if(result){
+
+let text = result.text
+
+let bytes = []
+
+for(let i=0;i<text.length;i++){
+
+bytes.push(text.charCodeAt(i))
+
+}
+
+let info = decodeTicket(bytes)
+
+resultBox.innerHTML = `
+<h3>Decoded fields</h3>
+<pre>${info}</pre>
+
+<h3>Raw bytes</h3>
+<pre>${hexDump(bytes)}</pre>
+`
+
+}
+
+})
+
+</script>
+
+</body>
+</html>
