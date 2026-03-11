@@ -2,32 +2,33 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>VR Ticket Scanner</title>
+<title>VR Ticket Analyzer</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 
 <style>
+
 body{
-font-family:Arial;
 background:#111;
 color:white;
+font-family:Arial;
 text-align:center;
 }
 
 video{
-width:400px;
-border:3px solid #444;
+width:420px;
 border-radius:10px;
+border:3px solid #333;
 }
 
 #result{
 margin-top:20px;
-background:#222;
-padding:20px;
-border-radius:10px;
-width:600px;
+width:800px;
 margin-left:auto;
 margin-right:auto;
+background:#1a1a1a;
+padding:20px;
+border-radius:10px;
 text-align:left;
 }
 
@@ -35,13 +36,17 @@ pre{
 white-space:pre-wrap;
 word-break:break-all;
 }
-</style>
 
+.section{
+margin-bottom:20px;
+}
+
+</style>
 </head>
 
 <body>
 
-<h1>VR Aztec Ticket Scanner</h1>
+<h1>VR Ticket Analyzer</h1>
 
 <video id="video"></video>
 
@@ -51,70 +56,127 @@ Waiting for scan...
 
 <script>
 
-const codeReader = new ZXing.BrowserMultiFormatReader()
+const reader = new ZXing.BrowserMultiFormatReader()
 
 const resultBox = document.getElementById("result")
 
+function stringToBytes(str){
+
+const encoder = new TextEncoder()
+return encoder.encode(str)
+
+}
+
 function hexDump(bytes){
 
-let out = ""
+let out=""
 
 for(let i=0;i<bytes.length;i++){
 
 let hex = bytes[i].toString(16).padStart(2,"0")
 
-out += i.toString().padStart(3,"0")+" 0x"+hex+"\n"
+out += i.toString().padStart(3,"0")+" : 0x"+hex+"\n"
 
 }
 
 return out
+
 }
 
-function decodeTicket(bytes){
+function decodeTrain(code){
 
-let coach = bytes[21]
-let seat  = bytes[22]
+const map={
+0x48:"IC",
+0x49:"IC",
+0x4A:"IC",
+0x44:"Regional?",
+0x45:"Regional?"
+}
 
-let origin = (bytes[26] << 8) | bytes[27]
-let dest   = (bytes[28] << 8) | bytes[29]
+return map[code] || "Unknown"
 
-let train  = bytes[23]
+}
+
+function analyze(bytes){
+
+let coach=bytes[21]
+let seat=bytes[22]
+let train=bytes[23]
+
+let origin=(bytes[26]<<8)|bytes[27]
+let dest=(bytes[28]<<8)|bytes[29]
+
+let seatField=(coach<<8)|seat
+
+let seatGuess="unknown"
+
+if(seat===100) seatGuess="≈67 (possible mapping)"
+if(seat===36) seatGuess="≈16/48 (seen in dataset)"
+if(seat===228) seatGuess="≈67/15"
 
 return `
-Origin station id: ${origin}
-Destination id: ${dest}
 
-Train code: 0x${train.toString(16)}
+🚆 Train code
+${train}  (${decodeTrain(train)})
 
-Coach raw: ${coach}
-Seat raw : ${seat}
+🚃 Coach (raw)
+${coach}
 
-Seat field: ${(coach<<8)+seat}
+💺 Seat encoded
+${seat}
+
+Seat field
+${seatField}
+
+Seat guess
+${seatGuess}
+
+📍 Origin station id
+${origin}
+
+📍 Destination id
+${dest}
+
 `
+
 }
 
-codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+reader.decodeFromVideoDevice(null,'video',(result,err)=>{
 
 if(result){
 
-let text = result.text
+let raw=result.text
 
-let bytes = []
+let bytes=stringToBytes(raw)
 
-for(let i=0;i<text.length;i++){
+let analysis=analyze(bytes)
 
-bytes.push(text.charCodeAt(i))
+resultBox.innerHTML=`
 
-}
+<div class="section">
 
-let info = decodeTicket(bytes)
+<h2>Decoded fields</h2>
 
-resultBox.innerHTML = `
-<h3>Decoded fields</h3>
-<pre>${info}</pre>
+<pre>${analysis}</pre>
 
-<h3>Raw bytes</h3>
+</div>
+
+<div class="section">
+
+<h2>Raw text payload</h2>
+
+<pre>${raw}</pre>
+
+</div>
+
+<div class="section">
+
+<h2>Byte dump</h2>
+
 <pre>${hexDump(bytes)}</pre>
+
+</div>
+
 `
 
 }
