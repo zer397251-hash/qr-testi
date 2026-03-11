@@ -34,11 +34,6 @@ text-align:left;
 
 pre{
 white-space:pre-wrap;
-word-break:break-all;
-}
-
-.section{
-margin-bottom:20px;
 }
 
 </style>
@@ -56,16 +51,9 @@ Waiting for scan...
 
 <script>
 
-const reader = new ZXing.BrowserMultiFormatReader()
+const reader = new ZXing.BrowserAztecCodeReader()
 
-const resultBox = document.getElementById("result")
-
-function stringToBytes(str){
-
-const encoder = new TextEncoder()
-return encoder.encode(str)
-
-}
+const resultBox=document.getElementById("result")
 
 function hexDump(bytes){
 
@@ -73,27 +61,13 @@ let out=""
 
 for(let i=0;i<bytes.length;i++){
 
-let hex = bytes[i].toString(16).padStart(2,"0")
+let hex=bytes[i].toString(16).padStart(2,"0")
 
-out += i.toString().padStart(3,"0")+" : 0x"+hex+"\n"
+out+=i.toString().padStart(3,"0")+" : 0x"+hex+"\n"
 
 }
 
 return out
-
-}
-
-function decodeTrain(code){
-
-const map={
-0x48:"IC",
-0x49:"IC",
-0x4A:"IC",
-0x44:"Regional?",
-0x45:"Regional?"
-}
-
-return map[code] || "Unknown"
 
 }
 
@@ -108,34 +82,19 @@ let dest=(bytes[28]<<8)|bytes[29]
 
 let seatField=(coach<<8)|seat
 
-let seatGuess="unknown"
-
-if(seat===100) seatGuess="≈67 (possible mapping)"
-if(seat===36) seatGuess="≈16/48 (seen in dataset)"
-if(seat===228) seatGuess="≈67/15"
-
 return `
 
-🚆 Train code
-${train}  (${decodeTrain(train)})
+Train byte: ${train}
 
-🚃 Coach (raw)
-${coach}
+Coach raw: ${coach}
 
-💺 Seat encoded
-${seat}
+Seat raw: ${seat}
 
-Seat field
-${seatField}
+Seat field: ${seatField}
 
-Seat guess
-${seatGuess}
+Origin ID: ${origin}
 
-📍 Origin station id
-${origin}
-
-📍 Destination id
-${dest}
+Destination ID: ${dest}
 
 `
 
@@ -145,39 +104,21 @@ reader.decodeFromVideoDevice(null,'video',(result,err)=>{
 
 if(result){
 
-let raw=result.text
+let bytes=result.getRawBytes()
 
-let bytes=stringToBytes(raw)
+if(!bytes){
 
-let analysis=analyze(bytes)
+resultBox.innerHTML="Scanner returned text only — try different ZXing build"
+return
 
-resultBox.innerHTML=`
+}
 
-<div class="section">
+let info=analyze(bytes)
 
-<h2>Decoded fields</h2>
+resultBox.innerHTML=
 
-<pre>${analysis}</pre>
-
-</div>
-
-<div class="section">
-
-<h2>Raw text payload</h2>
-
-<pre>${raw}</pre>
-
-</div>
-
-<div class="section">
-
-<h2>Byte dump</h2>
-
-<pre>${hexDump(bytes)}</pre>
-
-</div>
-
-`
+"<h2>Decoded fields</h2><pre>"+info+"</pre>"+
+"<h2>Byte dump</h2><pre>"+hexDump(bytes)+"</pre>"
 
 }
 
