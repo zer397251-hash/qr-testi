@@ -1,125 +1,101 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>VR Ticket Analyzer</title>
+<meta charset="utf-8">
+<title>VR Ticket Test Scanner</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 
 <style>
-
 body{
+font-family:Arial;
 background:#111;
 color:white;
-font-family:Arial;
 text-align:center;
 }
 
 video{
-width:420px;
+width:95%;
+max-width:500px;
 border-radius:10px;
-border:3px solid #333;
+margin-top:10px;
 }
 
 #result{
 margin-top:20px;
-width:800px;
-margin-left:auto;
-margin-right:auto;
-background:#1a1a1a;
-padding:20px;
+padding:10px;
+background:#222;
 border-radius:10px;
 text-align:left;
-}
-
-pre{
 white-space:pre-wrap;
 }
-
 </style>
 </head>
 
 <body>
 
-<h1>VR Ticket Analyzer</h1>
+<h2>VR Ticket Scanner (Test)</h2>
 
 <video id="video"></video>
 
-<div id="result">
-Waiting for scan...
-</div>
+<div id="result">Scan a ticket...</div>
 
 <script>
 
-const reader = new ZXing.BrowserAztecCodeReader()
+const codeReader = new ZXing.BrowserMultiFormatReader()
+const video = document.getElementById("video")
+const resultBox = document.getElementById("result")
 
-const resultBox=document.getElementById("result")
+function decodeTicket(bytes){
 
-function hexDump(bytes){
+let b = new Uint8Array(bytes)
 
-let out=""
+let b33 = b[33]
+let b34 = b[34]
 
-for(let i=0;i<bytes.length;i++){
+let val = (b33 << 2) | (b34 >> 6)
 
-let hex=bytes[i].toString(16).padStart(2,"0")
+let coach = val >> 7
+let seat = val & 0x7F
 
-out+=i.toString().padStart(3,"0")+" : 0x"+hex+"\n"
+let trainType = b[6]
+let trainByte = b[7]
 
-}
+let train = trainType == 8 ? trainType + trainByte : trainByte + 50
 
-return out
+let station = b[38]
 
-}
-
-function analyze(bytes){
-
-let coach=bytes[21]
-let seat=bytes[22]
-let train=bytes[23]
-
-let origin=(bytes[26]<<8)|bytes[27]
-let dest=(bytes[28]<<8)|bytes[29]
-
-let seatField=(coach<<8)|seat
+let route = (b[20] << 8) | b[21]
 
 return `
+🚆 Train: IC ${train}
 
-Train byte: ${train}
+🚃 Coach: ${coach}
 
-Coach raw: ${coach}
+💺 Seat: ${seat}
 
-Seat raw: ${seat}
+🛤 Route ID: ${route}
 
-Seat field: ${seatField}
+📍 Station code: ${station}
 
-Origin ID: ${origin}
-
-Destination ID: ${dest}
-
+Raw payload length: ${b.length} bytes
 `
-
 }
 
-reader.decodeFromVideoDevice(null,'video',(result,err)=>{
+codeReader.decodeFromVideoDevice(null, video, (result, err) => {
 
 if(result){
 
-let bytes=result.getRawBytes()
+let raw = result.getRawBytes()
 
-if(!bytes){
-
-resultBox.innerHTML="Scanner returned text only — try different ZXing build"
+if(!raw){
+resultBox.innerText = "No raw bytes available"
 return
-
 }
 
-let info=analyze(bytes)
+let decoded = decodeTicket(raw)
 
-resultBox.innerHTML=
-
-"<h2>Decoded fields</h2><pre>"+info+"</pre>"+
-"<h2>Byte dump</h2><pre>"+hexDump(bytes)+"</pre>"
-
+resultBox.innerText = decoded
 }
 
 })
