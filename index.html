@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>VR Ticket Test Scanner</title>
+<meta charset="UTF-8">
+<title>VR Ticket Scanner</title>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 
 <style>
+
 body{
-font-family:Arial;
+font-family: Arial;
 background:#111;
 color:white;
 text-align:center;
+padding:20px;
 }
 
 video{
@@ -23,22 +25,27 @@ margin-top:10px;
 
 #result{
 margin-top:20px;
-padding:10px;
+padding:15px;
 background:#222;
 border-radius:10px;
 text-align:left;
 white-space:pre-wrap;
+font-size:14px;
 }
+
 </style>
+
 </head>
 
 <body>
 
-<h2>VR Ticket Scanner (Test)</h2>
+<h1>🚆 VR Ticket Scanner</h1>
 
 <video id="video"></video>
 
-<div id="result">Scan a ticket...</div>
+<div id="result">
+Waiting for ticket scan...
+</div>
 
 <script>
 
@@ -50,6 +57,7 @@ function decodeTicket(bytes){
 
 let b = new Uint8Array(bytes)
 
+// coach + seat
 let b33 = b[33]
 let b34 = b[34]
 
@@ -58,17 +66,26 @@ let val = (b33 << 2) | (b34 >> 6)
 let coach = val >> 7
 let seat = val & 0x7F
 
-let trainType = b[6]
+// yläkerran paikat
+if((b[32] & 0x80) !== 0){
+seat += 100
+}
+
+// junanumero
 let trainByte = b[7]
+let trainFlag = b[6]
 
-let train = trainType == 8 ? trainType + trainByte : trainByte + 50
+let trainNumber = trainByte
 
-let station = b[38]
+if(trainFlag === 0x08){
+trainNumber = trainByte + 8
+}
 
+// route
 let route = (b[20] << 8) | b[21]
 
 return `
-🚆 Train: IC ${train}
+🚆 Train guess: ${trainNumber}
 
 🚃 Coach: ${coach}
 
@@ -76,9 +93,18 @@ return `
 
 🛤 Route ID: ${route}
 
-📍 Station code: ${station}
+📦 Payload length: ${b.length} bytes
 
-Raw payload length: ${b.length} bytes
+--- DEBUG ---
+
+byte6: ${b[6]}
+byte7: ${b[7]}
+byte16: ${b[16]}
+byte17: ${b[17]}
+byte31: ${b[31]}
+byte32: ${b[32]}
+byte33: ${b[33]}
+byte34: ${b[34]}
 `
 }
 
@@ -89,13 +115,14 @@ if(result){
 let raw = result.getRawBytes()
 
 if(!raw){
-resultBox.innerText = "No raw bytes available"
+resultBox.innerText = "No raw payload found"
 return
 }
 
 let decoded = decodeTicket(raw)
 
 resultBox.innerText = decoded
+
 }
 
 })
